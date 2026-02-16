@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Enhancer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        /* Steps */
+        .step {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 28px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .step.active { display: block; }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            background: #333;
+            color: #aaa;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step.active .step-number {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Upload area */
+        .drop-zone {
+            border: 2px dashed #333;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .drop-zone-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .drop-zone-text {
+            color: #888;
+            font-size: 15px;
+        }
+
+        .drop-zone-text strong {
+            color: #2563eb;
+        }
+
+        /* Progress bar */
+        .progress-container {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #2a2a2a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #2563eb;
+            border-radius: 2px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        .progress-text {
+            font-size: 13px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        /* Transcript editor */
+        .transcript-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .transcript-column label {
+            display: block;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .transcript-original {
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #666;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        textarea.transcript-editor {
+            width: 100%;
+            min-height: 300px;
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #e0e0e0;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        textarea.transcript-editor:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        /* Voice selector */
+        .voice-section {
+            margin-top: 24px;
+        }
+
+        .voice-section label {
+            display: block;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .voice-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .voice-option {
+            background: #111;
+            border: 2px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+
+        .voice-option:hover {
+            border-color: #444;
+        }
+
+        .voice-option.selected {
+            border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        .voice-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #fff;
+            text-transform: capitalize;
+        }
+
+        .voice-desc {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-primary:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #222;
+            color: #e0e0e0;
+            border: 1px solid #333;
+        }
+
+        .btn-secondary:hover {
+            background: #2a2a2a;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        /* Preview */
+        .preview-section {
+            margin-top: 20px;
+        }
+
+        .preview-section video {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Status message */
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px;
+            background: #111;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .status.error {
+            background: rgba(220, 38, 38, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        /* File info */
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            background: #111;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .file-info-icon {
+            font-size: 24px;
+            opacity: 0.6;
+        }
+
+        .file-info-name {
+            font-size: 14px;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .file-info-size {
+            font-size: 12px;
+            color: #666;
+        }
+
+        @media (max-width: 640px) {
+            .transcript-columns { grid-template-columns: 1fr; }
+            .voice-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Enhancer</h1>
+        <p class="subtitle">Upload a video, clean up the narration, re-voice with AI, and add captions.</p>
+
+        <!-- Step 1: Upload -->
+        <div class="step active" id="step-upload">
+            <div class="step-header">
+                <div class="step-number">1</div>
+                <div class="step-title">Upload Video</div>
+            </div>
+
+            <div class="drop-zone" id="drop-zone">
+                <div class="drop-zone-icon">&#127916;</div>
+                <div class="drop-zone-text">
+                    Drag & drop your video here or <strong>click to browse</strong>
+                </div>
+            </div>
+            <input type="file" id="file-input" accept="video/*" hidden>
+
+            <div class="file-info" id="file-info" style="display:none">
+                <div class="file-info-icon">&#128196;</div>
+                <div>
+                    <div class="file-info-name" id="file-name"></div>
+                    <div class="file-info-size" id="file-size"></div>
+                </div>
+            </div>
+
+            <div class="progress-container" id="upload-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">Uploading...</div>
+            </div>
+        </div>
+
+        <!-- Step 2: Transcribe & Edit -->
+        <div class="step" id="step-transcribe">
+            <div class="step-header">
+                <div class="step-number">2</div>
+                <div class="step-title">Edit Script</div>
+            </div>
+
+            <div class="transcript-columns">
+                <div class="transcript-column">
+                    <label>Original Transcript</label>
+                    <div class="transcript-original" id="original-transcript"></div>
+                </div>
+                <div class="transcript-column">
+                    <label>Cleaned Script (editable)</label>
+                    <textarea class="transcript-editor" id="cleaned-transcript"></textarea>
+                </div>
+            </div>
+
+            <div class="voice-section">
+                <label>Select Voice</label>
+                <div class="voice-grid" id="voice-grid"></div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="btn-generate">Generate Video</button>
+            </div>
+
+            <div class="status" id="generate-status" style="display:none">
+                <div class="spinner"></div>
+                <span id="generate-status-text">Generating...</span>
+            </div>
+        </div>
+
+        <!-- Step 3: Preview & Download -->
+        <div class="step" id="step-preview">
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <div class="step-title">Preview & Download</div>
+            </div>
+
+            <div class="preview-section">
+                <video id="preview-video" controls></video>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="btn-download">Download Video</button>
+                <button class="btn btn-secondary" id="btn-start-over">Start Over</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const voiceDescriptions = {
+            alloy: 'Neutral & balanced',
+            echo: 'Warm & smooth',
+            fable: 'Expressive & British',
+            onyx: 'Deep & authoritative',
+            nova: 'Friendly & upbeat',
+            shimmer: 'Clear & gentle',
+        };
+
+        let jobId = null;
+        let segments = [];
+        let selectedVoice = 'nova';
+
+        // --- DOM refs ---
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const uploadProgress = document.getElementById('upload-progress');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+
+        const stepUpload = document.getElementById('step-upload');
+        const stepTranscribe = document.getElementById('step-transcribe');
+        const stepPreview = document.getElementById('step-preview');
+
+        const originalTranscript = document.getElementById('original-transcript');
+        const cleanedTranscript = document.getElementById('cleaned-transcript');
+        const voiceGrid = document.getElementById('voice-grid');
+        const btnGenerate = document.getElementById('btn-generate');
+        const generateStatus = document.getElementById('generate-status');
+        const generateStatusText = document.getElementById('generate-status-text');
+
+        const previewVideo = document.getElementById('preview-video');
+        const btnDownload = document.getElementById('btn-download');
+        const btnStartOver = document.getElementById('btn-start-over');
+
+        // --- Voice grid ---
+        Object.entries(voiceDescriptions).forEach(([voice, desc]) => {
+            const div = document.createElement('div');
+            div.className = 'voice-option' + (voice === selectedVoice ? ' selected' : '');
+            div.innerHTML = `<div class="voice-name">${voice}</div><div class="voice-desc">${desc}</div>`;
+            div.addEventListener('click', () => {
+                document.querySelectorAll('.voice-option').forEach(el => el.classList.remove('selected'));
+                div.classList.add('selected');
+                selectedVoice = voice;
+            });
+            voiceGrid.appendChild(div);
+        });
+
+        // --- Upload ---
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        function formatSize(bytes) {
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        async function handleFile(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatSize(file.size);
+            fileInfo.style.display = 'flex';
+
+            uploadProgress.style.display = 'block';
+            progressText.textContent = 'Uploading...';
+            progressFill.style.width = '0%';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // Upload with progress
+                const xhr = new XMLHttpRequest();
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        progressFill.style.width = pct + '%';
+                        progressText.textContent = `Uploading... ${pct}%`;
+                    }
+                });
+
+                const uploadResult = await new Promise((resolve, reject) => {
+                    xhr.onload = () => {
+                        if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
+                        else reject(new Error(xhr.responseText));
+                    };
+                    xhr.onerror = () => reject(new Error('Upload failed'));
+                    xhr.open('POST', '/upload');
+                    xhr.send(formData);
+                });
+
+                jobId = uploadResult.job_id;
+                progressText.textContent = 'Transcribing and cleaning up script...';
+                progressFill.style.width = '100%';
+
+                // Transcribe
+                const transcribeRes = await fetch(`/transcribe/${jobId}`, { method: 'POST' });
+                if (!transcribeRes.ok) {
+                    const err = await transcribeRes.json();
+                    throw new Error(err.detail || 'Transcription failed');
+                }
+                const data = await transcribeRes.json();
+
+                originalTranscript.textContent = data.raw_transcript;
+                cleanedTranscript.value = data.cleaned_text;
+                segments = data.segments;
+
+                // Move to step 2
+                stepUpload.classList.remove('active');
+                stepTranscribe.classList.add('active');
+
+            } catch (err) {
+                progressText.textContent = 'Error: ' + err.message;
+                progressFill.style.background = '#dc2626';
+            }
+        }
+
+        // --- Generate ---
+        btnGenerate.addEventListener('click', async () => {
+            btnGenerate.disabled = true;
+            generateStatus.style.display = 'flex';
+            generateStatus.classList.remove('error');
+            generateStatusText.textContent = 'Generating voiceover, captions, and final video... This may take a few minutes.';
+
+            try {
+                // Rebuild segments from edited text (simple approach: keep original timing, update text)
+                const editedText = cleanedTranscript.value.trim();
+                const editedSegments = rebuildSegments(editedText, segments);
+
+                const res = await fetch(`/generate/${jobId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        script: editedText,
+                        segments: editedSegments,
+                        voice: selectedVoice,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Generation failed');
+                }
+
+                // Move to step 3
+                previewVideo.src = `/preview/${jobId}`;
+                stepTranscribe.classList.remove('active');
+                stepPreview.classList.add('active');
+
+            } catch (err) {
+                generateStatus.classList.add('error');
+                generateStatusText.textContent = 'Error: ' + err.message;
+            } finally {
+                btnGenerate.disabled = false;
+            }
+        });
+
+        function rebuildSegments(editedText, originalSegments) {
+            // If user edited the text, redistribute timing across segments proportionally
+            if (!originalSegments.length) return [];
+
+            const totalOriginalChars = originalSegments.reduce((sum, s) => sum + s.text.length, 0);
+            const totalDuration = originalSegments[originalSegments.length - 1].end - originalSegments[0].start;
+            const startOffset = originalSegments[0].start;
+
+            // Split edited text into sentences for segment breaks
+            const sentences = editedText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [editedText];
+            const totalEditedChars = sentences.reduce((sum, s) => sum + s.trim().length, 0);
+
+            let currentTime = startOffset;
+            return sentences.map((sentence, i) => {
+                const text = sentence.trim();
+                const proportion = text.length / (totalEditedChars || 1);
+                const duration = proportion * totalDuration;
+                const seg = {
+                    start: currentTime,
+                    end: currentTime + duration,
+                    text: text,
+                };
+                currentTime += duration;
+                return seg;
+            });
+        }
+
+        // --- Download ---
+        btnDownload.addEventListener('click', () => {
+            window.location.href = `/download/${jobId}`;
+        });
+
+        btnStartOver.addEventListener('click', () => {
+            jobId = null;
+            segments = [];
+            fileInput.value = '';
+            fileInfo.style.display = 'none';
+            uploadProgress.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressFill.style.background = '#2563eb';
+            generateStatus.style.display = 'none';
+            previewVideo.src = '';
+            stepPreview.classList.remove('active');
+            stepUpload.classList.add('active');
+        });
+    </script>
+</body>
+</html>
