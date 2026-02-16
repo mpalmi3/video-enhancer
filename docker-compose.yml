@@ -1,0 +1,10 @@
+services:
+  video-enhancer:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./output:/app/output
