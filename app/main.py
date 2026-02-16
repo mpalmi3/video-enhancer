@@ -137,6 +137,19 @@ async def generate_video(job_id: str, req: GenerateRequest):
     return {"status": "complete", "job_id": job_id}
 
 
+@app.get("/original/{job_id}")
+async def original_video(job_id: str):
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    return FileResponse(
+        job["video_path"],
+        media_type="video/mp4",
+        headers={"Accept-Ranges": "bytes"},
+    )
+
+
 @app.get("/preview/{job_id}")
 async def preview_video(job_id: str):
     job = jobs.get(job_id)

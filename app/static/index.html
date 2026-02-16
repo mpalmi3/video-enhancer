@@ -15,7 +15,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 40px 20px;
         }
@@ -134,14 +134,21 @@
             margin-top: 8px;
         }
 
-        /* Transcript editor */
-        .transcript-columns {
+        /* Editor layout: video on left, segments on right */
+        .editor-layout {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 20px;
         }
 
-        .transcript-column label {
+        .editor-video-col video {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        .editor-video-col label,
+        .editor-segments-col label {
             display: block;
             font-size: 13px;
             color: #888;
@@ -149,35 +156,69 @@
             font-weight: 500;
         }
 
-        .transcript-original {
-            background: #111;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            padding: 14px;
-            font-size: 14px;
-            line-height: 1.7;
-            color: #666;
-            max-height: 400px;
+        /* Segment list */
+        .segment-list {
+            max-height: 500px;
             overflow-y: auto;
-        }
-
-        textarea.transcript-editor {
-            width: 100%;
-            min-height: 300px;
-            background: #111;
             border: 1px solid #2a2a2a;
             border-radius: 8px;
-            padding: 14px;
-            font-size: 14px;
-            line-height: 1.7;
-            color: #e0e0e0;
-            resize: vertical;
-            font-family: inherit;
+            background: #111;
         }
 
-        textarea.transcript-editor:focus {
+        .segment-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #1e1e1e;
+            transition: background 0.15s;
+        }
+
+        .segment-item:last-child {
+            border-bottom: none;
+        }
+
+        .segment-item.active {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .segment-timestamp {
+            flex-shrink: 0;
+            font-size: 12px;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            color: #2563eb;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(37, 99, 235, 0.08);
+            line-height: 1.6;
+            user-select: none;
+            white-space: nowrap;
+            height: fit-content;
+            margin-top: 2px;
+        }
+
+        .segment-timestamp:hover {
+            background: rgba(37, 99, 235, 0.2);
+        }
+
+        .segment-text {
+            flex: 1;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 4px 8px;
+            font-family: inherit;
+            resize: none;
+            overflow: hidden;
+        }
+
+        .segment-text:focus {
             outline: none;
             border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.04);
         }
 
         /* Voice selector */
@@ -348,8 +389,8 @@
             color: #666;
         }
 
-        @media (max-width: 640px) {
-            .transcript-columns { grid-template-columns: 1fr; }
+        @media (max-width: 768px) {
+            .editor-layout { grid-template-columns: 1fr; }
             .voice-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
@@ -397,14 +438,14 @@
                 <div class="step-title">Edit Script</div>
             </div>
 
-            <div class="transcript-columns">
-                <div class="transcript-column">
-                    <label>Original Transcript</label>
-                    <div class="transcript-original" id="original-transcript"></div>
+            <div class="editor-layout">
+                <div class="editor-video-col">
+                    <label>Original Video</label>
+                    <video id="original-video" controls></video>
                 </div>
-                <div class="transcript-column">
-                    <label>Cleaned Script (editable)</label>
-                    <textarea class="transcript-editor" id="cleaned-transcript"></textarea>
+                <div class="editor-segments-col">
+                    <label>Script — click a timestamp to jump in the video</label>
+                    <div class="segment-list" id="segment-list"></div>
                 </div>
             </div>
 
@@ -469,8 +510,8 @@
         const stepTranscribe = document.getElementById('step-transcribe');
         const stepPreview = document.getElementById('step-preview');
 
-        const originalTranscript = document.getElementById('original-transcript');
-        const cleanedTranscript = document.getElementById('cleaned-transcript');
+        const originalVideo = document.getElementById('original-video');
+        const segmentList = document.getElementById('segment-list');
         const voiceGrid = document.getElementById('voice-grid');
         const btnGenerate = document.getElementById('btn-generate');
         const generateStatus = document.getElementById('generate-status');
@@ -491,6 +532,75 @@
                 selectedVoice = voice;
             });
             voiceGrid.appendChild(div);
+        });
+
+        // --- Timestamp formatting ---
+        function formatTimestamp(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+
+        // --- Build segment editor ---
+        function renderSegments(segs) {
+            segmentList.innerHTML = '';
+            segs.forEach((seg, i) => {
+                const row = document.createElement('div');
+                row.className = 'segment-item';
+                row.dataset.index = i;
+
+                const ts = document.createElement('div');
+                ts.className = 'segment-timestamp';
+                ts.textContent = formatTimestamp(seg.start);
+                ts.title = `Jump to ${formatTimestamp(seg.start)}`;
+                ts.addEventListener('click', () => {
+                    originalVideo.currentTime = seg.start;
+                    originalVideo.play();
+                });
+
+                const textarea = document.createElement('textarea');
+                textarea.className = 'segment-text';
+                textarea.value = seg.text;
+                textarea.rows = 1;
+                textarea.addEventListener('input', () => {
+                    // Auto-resize
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                    // Update segment data
+                    segments[i].text = textarea.value;
+                });
+                textarea.addEventListener('focus', () => {
+                    originalVideo.currentTime = seg.start;
+                });
+
+                row.appendChild(ts);
+                row.appendChild(textarea);
+                segmentList.appendChild(row);
+
+                // Auto-resize on initial render
+                requestAnimationFrame(() => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                });
+            });
+        }
+
+        // --- Highlight active segment during video playback ---
+        originalVideo.addEventListener('timeupdate', () => {
+            const t = originalVideo.currentTime;
+            document.querySelectorAll('.segment-item').forEach(row => {
+                const i = parseInt(row.dataset.index);
+                const seg = segments[i];
+                if (seg && t >= seg.start && t < seg.end) {
+                    if (!row.classList.contains('active')) {
+                        row.classList.add('active');
+                        // Scroll into view if needed
+                        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                } else {
+                    row.classList.remove('active');
+                }
+            });
         });
 
         // --- Upload ---
@@ -537,7 +647,6 @@
             formData.append('file', file);
 
             try {
-                // Upload with progress
                 const xhr = new XMLHttpRequest();
                 xhr.upload.addEventListener('progress', (e) => {
                     if (e.lengthComputable) {
@@ -561,7 +670,6 @@
                 progressText.textContent = 'Transcribing and cleaning up script...';
                 progressFill.style.width = '100%';
 
-                // Transcribe
                 const transcribeRes = await fetch(`/transcribe/${jobId}`, { method: 'POST' });
                 if (!transcribeRes.ok) {
                     const err = await transcribeRes.json();
@@ -569,9 +677,13 @@
                 }
                 const data = await transcribeRes.json();
 
-                originalTranscript.textContent = data.raw_transcript;
-                cleanedTranscript.value = data.cleaned_text;
                 segments = data.segments;
+
+                // Set up video player with original video
+                originalVideo.src = `/original/${jobId}`;
+
+                // Render segment editor
+                renderSegments(segments);
 
                 // Move to step 2
                 stepUpload.classList.remove('active');
@@ -591,15 +703,15 @@
             generateStatusText.textContent = 'Generating voiceover, captions, and final video... This may take a few minutes.';
 
             try {
-                // Rebuild segments from edited text (simple approach: keep original timing, update text)
-                const editedText = cleanedTranscript.value.trim();
-                const editedSegments = rebuildSegments(editedText, segments);
+                // Collect edited text from segment textareas
+                const editedSegments = segments.map(s => ({...s}));
+                const fullScript = editedSegments.map(s => s.text).join(' ');
 
                 const res = await fetch(`/generate/${jobId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        script: editedText,
+                        script: fullScript,
                         segments: editedSegments,
                         voice: selectedVoice,
                     }),
@@ -610,7 +722,6 @@
                     throw new Error(err.detail || 'Generation failed');
                 }
 
-                // Move to step 3
                 previewVideo.src = `/preview/${jobId}`;
                 stepTranscribe.classList.remove('active');
                 stepPreview.classList.add('active');
@@ -622,33 +733,6 @@
                 btnGenerate.disabled = false;
             }
         });
-
-        function rebuildSegments(editedText, originalSegments) {
-            // If user edited the text, redistribute timing across segments proportionally
-            if (!originalSegments.length) return [];
-
-            const totalOriginalChars = originalSegments.reduce((sum, s) => sum + s.text.length, 0);
-            const totalDuration = originalSegments[originalSegments.length - 1].end - originalSegments[0].start;
-            const startOffset = originalSegments[0].start;
-
-            // Split edited text into sentences for segment breaks
-            const sentences = editedText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [editedText];
-            const totalEditedChars = sentences.reduce((sum, s) => sum + s.trim().length, 0);
-
-            let currentTime = startOffset;
-            return sentences.map((sentence, i) => {
-                const text = sentence.trim();
-                const proportion = text.length / (totalEditedChars || 1);
-                const duration = proportion * totalDuration;
-                const seg = {
-                    start: currentTime,
-                    end: currentTime + duration,
-                    text: text,
-                };
-                currentTime += duration;
-                return seg;
-            });
-        }
 
         // --- Download ---
         btnDownload.addEventListener('click', () => {
@@ -664,7 +748,9 @@
             progressFill.style.width = '0%';
             progressFill.style.background = '#2563eb';
             generateStatus.style.display = 'none';
+            originalVideo.src = '';
             previewVideo.src = '';
+            segmentList.innerHTML = '';
             stepPreview.classList.remove('active');
             stepUpload.classList.add('active');
         });
